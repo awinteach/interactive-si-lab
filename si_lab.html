@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Interactive SI Units Virtual Lab</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f8f8f8;
+  }
+  h1 {
+    text-align: center;
+    margin-top: 10px;
+  }
+  #container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+    margin: 20px;
+  }
+  #canvas-container {
+    position: relative;
+  }
+  #details {
+    margin-left: 20px;
+    width: 400px;
+    min-height: 600px;
+    background: #ffffff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  #details h2 {
+    margin-top: 0;
+  }
+  .slider-container {
+    margin: 10px 0;
+  }
+  .slider-container label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  .slider-container input[type="range"] {
+    width: 100%;
+  }
+  .info-box {
+    margin-top: 10px;
+    background: #f0f7ff;
+    border: 1px solid #cfe3ff;
+    border-radius: 4px;
+    padding: 8px;
+    font-size: 14px;
+  }
+  #timerDisplay {
+    font-size: 24px;
+    font-weight: bold;
+    margin-top: 10px;
+  }
+  #startStopBtn {
+    padding: 8px 14px;
+    background: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #startStopBtn.running {
+    background: #dc3545;
+  }
+</style>
+</head>
+<body>
+<h1>Interactive SI Units Virtual Lab</h1>
+<p style="text-align:center; max-width:800px; margin:0 auto; font-size:14px;">Click on a base quantity to explore its definition, SI unit and symbol, and experiment with an interactive tool. This lab helps you visualize how each base quantity is measured and relate it to everyday experiences.</p>
+<div id="container">
+  <div id="canvas-container">
+    <canvas id="siCanvas" width="600" height="600"></canvas>
+  </div>
+  <div id="details">
+    <h2>Select a base quantity</h2>
+    <p>Click on one of the circles to the left to learn more about that SI base quantity and interact with a measurement tool.</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('siCanvas');
+  const ctx = canvas.getContext('2d');
+  const details = document.getElementById('details');
+
+  // Define SI base quantities with positions and base info
+  const quantities = [
+    {
+      name: 'Time',
+      symbol: 's',
+      siUnit: 'second (s)',
+      measure: 'duration / how long',
+      description: 'Time quantifies how long events last or the intervals between them.',
+      position: { x: 100, y: 100 },
+      color: '#ff6f61'
+      ,example: 'At Moreno Valley High School, class periods often run about 50 minutes. Track events time students to the hundredth of a second in the 100 m dash.'
+    },
+    {
+      name: 'Length',
+      symbol: 'm',
+      siUnit: 'meter (m)',
+      measure: 'distance / size',
+      description: 'Length measures the straight-line distance between two points.',
+      position: { x: 300, y: 100 },
+      color: '#6c5ce7'
+      ,example: 'The school’s football field is 100 yards long (≈91.44 m). A typical laboratory bench in a science classroom is about 2.5 m long.'
+    },
+    {
+      name: 'Mass',
+      symbol: 'kg',
+      siUnit: 'kilogram (kg)',
+      measure: 'amount of matter',
+      description: 'Mass quantifies the amount of matter in an object.',
+      position: { x: 500, y: 100 },
+      color: '#00b894'
+      ,example: 'A football used by Moreno Valley High’s team weighs roughly 0.41 kg (0.9 lb). A physics textbook in the classroom weighs about 1.5 kg.'
+    },
+    {
+      name: 'Temperature',
+      symbol: 'K',
+      siUnit: 'kelvin (K)',
+      measure: 'thermal energy level',
+      description: 'Temperature reflects the average kinetic energy of particles.',
+      position: { x: 100, y: 300 },
+      color: '#e17055'
+      ,example: 'Classrooms at Moreno Valley High are kept around 22 °C (295 K). Outdoor summer temperatures in Moreno Valley can reach 35 °C (308 K).'
+    },
+    {
+      name: 'Amount of substance',
+      symbol: 'mol',
+      siUnit: 'mole (mol)',
+      measure: 'particle count',
+      description: 'Amount of substance counts the number of specified elementary entities.',
+      position: { x: 300, y: 300 },
+      color: '#0984e3'
+      ,example: 'In chemistry lab, students might dissolve 5.8 g of sodium chloride (0.1 mol) in water to make a salt solution.'
+    },
+    {
+      name: 'Electric current',
+      symbol: 'A',
+      siUnit: 'ampere (A)',
+      measure: 'flow of charge per second',
+      description: 'Electric current measures the flow of electric charge through a conductor.',
+      position: { x: 500, y: 300 },
+      color: '#fdcb6e'
+      ,example: 'The school’s electronic scoreboard may draw around 2 A of current. Science lab circuits use currents from milliamps to several amps.'
+    },
+    {
+      name: 'Luminous intensity',
+      symbol: 'cd',
+      siUnit: 'candela (cd)',
+      measure: 'light brightness in a direction',
+      description: 'Luminous intensity quantifies light emitted in a particular direction.',
+      position: { x: 300, y: 500 },
+      color: '#00cec9'
+      ,example: 'Classroom overhead lights emit a few hundred candelas. Stage lights in the school auditorium are much brighter, producing thousands of candelas.'
+    }
+  ];
+
+  const radius = 60;
+  let selected = null;
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    quantities.forEach(q => {
+      ctx.beginPath();
+      ctx.arc(q.position.x, q.position.y, radius, 0, 2 * Math.PI);
+      // fill selected differently
+      if (selected === q) {
+        ctx.fillStyle = shadeColor(q.color, -20);
+      } else {
+        ctx.fillStyle = q.color;
+      }
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      // label text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(q.name, q.position.x, q.position.y + 5);
+    });
+  }
+
+  function shadeColor(color, percent) {
+    // lighten or darken a hex color
+    const num = parseInt(color.slice(1), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const B = ((num >> 8) & 0x00FF) + amt;
+    const G = (num & 0x0000FF) + amt;
+    return (
+      '#' +
+      (
+        0x1000000 +
+        (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+        (B < 255 ? (B < 1 ? 0 : B) : 255) * 0x100 +
+        (G < 255 ? (G < 1 ? 0 : G) : 255)
+      )
+        .toString(16)
+        .slice(1)
+    );
+  }
+
+  function handleClick(event) {
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    selected = null;
+    for (const q of quantities) {
+      const dx = x - q.position.x;
+      const dy = y - q.position.y;
+      if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+        selected = q;
+        break;
+      }
+    }
+    draw();
+    updateDetails();
+  }
+
+  function updateDetails() {
+    // clear details
+    details.innerHTML = '';
+    if (!selected) {
+      const header = document.createElement('h2');
+      header.textContent = 'Select a base quantity';
+      const p = document.createElement('p');
+      p.textContent = 'Click on one of the circles to the left to learn more about that SI base quantity and interact with a measurement tool.';
+      details.appendChild(header);
+      details.appendChild(p);
+      // insert an image summarizing the seven SI base quantities
+      const img = document.createElement('img');
+      // use an absolute file path to ensure the image loads correctly in a local file
+      img.src = 'file:///home/oai/share/b4403ae3-8223-4855-930f-fc427f7ab7b0.png';
+      img.alt = 'SI base quantities table';
+      img.style.maxWidth = '100%';
+      img.style.marginTop = '10px';
+      details.appendChild(img);
+      return;
+    }
+    const q = selected;
+    // header
+    const header = document.createElement('h2');
+    header.textContent = q.name;
+    details.appendChild(header);
+    // description
+    const desc = document.createElement('p');
+    desc.textContent = `${q.description}`;
+    details.appendChild(desc);
+    // unit info
+    const unitInfo = document.createElement('div');
+    unitInfo.className = 'info-box';
+    unitInfo.innerHTML = `<strong>Measures:</strong> ${q.measure}<br><strong>SI Unit:</strong> ${q.siUnit} (${q.symbol})`;
+    details.appendChild(unitInfo);
+
+    // Real-life example box
+    if (q.example) {
+      const exampleBox = document.createElement('div');
+      exampleBox.className = 'info-box';
+      exampleBox.innerHTML = `<strong>Real-life example:</strong> ${q.example}`;
+      details.appendChild(exampleBox);
+    }
+
+    // Insert interactive element depending on quantity
+    switch (q.name) {
+      case 'Time':
+        createTimeTool(details);
+        break;
+      case 'Length':
+        createLengthTool(details);
+        break;
+      case 'Mass':
+        createMassTool(details);
+        break;
+      case 'Temperature':
+        createTemperatureTool(details);
+        break;
+      case 'Amount of substance':
+        createAmountTool(details);
+        break;
+      case 'Electric current':
+        createCurrentTool(details);
+        break;
+      case 'Luminous intensity':
+        createLuminousTool(details);
+        break;
+    }
+  }
+
+  function createTimeTool(container) {
+    const toolDiv = document.createElement('div');
+    toolDiv.className = 'tool time-tool';
+    const btn = document.createElement('button');
+    btn.id = 'startStopBtn';
+    btn.textContent = 'Start Timer';
+    let interval = null;
+    let timeElapsed = 0;
+    const display = document.createElement('div');
+    display.id = 'timerDisplay';
+    display.textContent = '0.00 s';
+
+    btn.addEventListener('click', () => {
+      if (interval) {
+        // stop timer
+        clearInterval(interval);
+        interval = null;
+        btn.textContent = 'Start Timer';
+        btn.classList.remove('running');
+      } else {
+        // start timer
+        const startTime = Date.now() - timeElapsed;
+        interval = setInterval(() => {
+          timeElapsed = Date.now() - startTime;
+          display.textContent = (timeElapsed / 1000).toFixed(2) + ' s';
+        }, 50);
+        btn.textContent = 'Stop Timer';
+        btn.classList.add('running');
+      }
+    });
+    toolDiv.appendChild(btn);
+    toolDiv.appendChild(display);
+    container.appendChild(toolDiv);
+  }
+
+  function createLengthTool(container) {
+    const div = document.createElement('div');
+    div.className = 'slider-container';
+    const label = document.createElement('label');
+    label.textContent = 'Adjust length (m):';
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = '10';
+    slider.value = '5';
+    slider.step = '0.01';
+    const valueDisplay = document.createElement('div');
+    valueDisplay.textContent = '5.00 m';
+    slider.addEventListener('input', () => {
+      const val = parseFloat(slider.value);
+      valueDisplay.textContent = `${val.toFixed(2)} m`;
+      // update derived quantities: area and volume of a cube of side val
+      areaP.textContent = `Area of a square: ${(val * val).toFixed(2)} m²`;
+      volumeP.textContent = `Volume of a cube: ${(val ** 3).toFixed(2)} m³`;
+    });
+    div.appendChild(label);
+    div.appendChild(slider);
+    div.appendChild(valueDisplay);
+    container.appendChild(div);
+    // derived quantities
+    const derivedDiv = document.createElement('div');
+    derivedDiv.className = 'info-box';
+    const areaP = document.createElement('p');
+    areaP.textContent = `Area of a square: ${(5 * 5).toFixed(2)} m²`;
+    const volumeP = document.createElement('p');
+    volumeP.textContent = `Volume of a cube: ${(5 ** 3).toFixed(2)} m³`;
+    derivedDiv.appendChild(areaP);
+    derivedDiv.appendChild(volumeP);
+    container.appendChild(derivedDiv);
+
+    // add real illustrative image for length
+    const img = document.createElement('img');
+    // use an absolute file path to ensure the image loads correctly in a local file
+    img.src = 'file:///home/oai/share/422b29cb-03ea-40b2-9ad6-cae9c672dbb5.png';
+    img.alt = 'Diagram explaining length';
+    img.style.maxWidth = '100%';
+    img.style.marginTop = '10px';
+    container.appendChild(img);
+  }
+
+  function createMassTool(container) {
+    const div = document.createElement('div');
+    div.className = 'slider-container';
+    const label = document.createElement('label');
+    label.textContent = 'Adjust mass (kg):';
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = '10';
+    slider.value = '2';
+    slider.step = '0.01';
+    const valueDisplay = document.createElement('div');
+    valueDisplay.textContent = '2.00 kg';
+    // Derived weight in Newtons (approx. g=9.81 m/s^2)
+    const weightP = document.createElement('p');
+    weightP.textContent = `Weight on Earth: ${(2 * 9.81).toFixed(2)} N`;
+    slider.addEventListener('input', () => {
+      const val = parseFloat(slider.value);
+      valueDisplay.textContent = `${val.toFixed(2)} kg`;
+      weightP.textContent = `Weight on Earth: ${(val * 9.81).toFixed(2)} N`;
+    });
+    div.appendChild(label);
+    div.appendChild(slider);
+    div.appendChild(valueDisplay);
+    container.appendChild(div);
+    const derived = document.createElement('div');
+    derived.className = 'info-box';
+    derived.appendChild(weightP);
+    container.appendChild(derived);
+  }
+
+  function createTemperatureTool(container) {
+    const div = document.createElement('div');
+    div.className = 'slider-container';
+    const label = document.createElement('label');
+    label.textContent = 'Adjust temperature (K):';
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '200';
+    slider.max = '400';
+    slider.value = '293';
+    slider.step = '0.1';
+    const valueDisplay = document.createElement('div');
+    const celsiusP = document.createElement('p');
+    const fahrenheitP = document.createElement('p');
+    const updateTemps = () => {
+      const kelvin = parseFloat(slider.value);
+      valueDisplay.textContent = `${kelvin.toFixed(1)} K`;
+      const c = kelvin - 273.15;
+      const f = c * 9/5 + 32;
+      celsiusP.textContent = `Celsius: ${c.toFixed(1)} °C`;
+      fahrenheitP.textContent = `Fahrenheit: ${f.toFixed(1)} °F`;
+    };
+    slider.addEventListener('input', updateTemps);
+    updateTemps();
+    div.appendChild(label);
+    div.appendChild(slider);
+    div.appendChild(valueDisplay);
+    container.appendChild(div);
+    const derived = document.createElement('div');
+    derived.className = 'info-box';
+    derived.appendChild(celsiusP);
+    derived.appendChild(fahrenheitP);
+    container.appendChild(derived);
+  }
+
+  function createAmountTool(container) {
+    const div = document.createElement('div');
+    div.className = 'slider-container';
+    const label = document.createElement('label');
+    label.textContent = 'Adjust amount (moles):';
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = '5';
+    slider.value = '1';
+    slider.step = '0.01';
+    const valueDisplay = document.createElement('div');
+    const particlesP = document.createElement('p');
+    const updateParticles = () => {
+      const moles = parseFloat(slider.value);
+      valueDisplay.textContent = `${moles.toFixed(2)} mol`;
+      const particles = moles * 6.022e23;
+      particlesP.textContent = `Particles: ${particles.toExponential(2)}`;
+    };
+    slider.addEventListener('input', updateParticles);
+    updateParticles();
+    div.appendChild(label);
+    div.appendChild(slider);
+    div.appendChild(valueDisplay);
+    container.appendChild(div);
+    const info = document.createElement('div');
+    info.className = 'info-box';
+    info.appendChild(particlesP);
+    container.appendChild(info);
+  }
+
+  function createCurrentTool(container) {
+    const div = document.createElement('div');
+    div.className = 'slider-container';
+    const label = document.createElement('label');
+    label.textContent = 'Adjust current (A):';
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = '10';
+    slider.value = '1';
+    slider.step = '0.01';
+    const valueDisplay = document.createElement('div');
+    const electronsP = document.createElement('p');
+    const updateCurrent = () => {
+      const amps = parseFloat(slider.value);
+      valueDisplay.textContent = `${amps.toFixed(2)} A`;
+      // Number of electrons per second: I/e where e = 1.602e-19 C
+      const electrons = (amps / 1.602e-19);
+      electronsP.textContent = `Electrons/s: ${electrons.toExponential(2)}`;
+    };
+    slider.addEventListener('input', updateCurrent);
+    updateCurrent();
+    div.appendChild(label);
+    div.appendChild(slider);
+    div.appendChild(valueDisplay);
+    container.appendChild(div);
+    const info = document.createElement('div');
+    info.className = 'info-box';
+    info.appendChild(electronsP);
+    container.appendChild(info);
+  }
+
+  function createLuminousTool(container) {
+    const div = document.createElement('div');
+    div.className = 'slider-container';
+    const label = document.createElement('label');
+    label.textContent = 'Adjust luminous intensity (cd):';
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = '100';
+    slider.value = '50';
+    slider.step = '1';
+    const valueDisplay = document.createElement('div');
+    const lightBox = document.createElement('div');
+    lightBox.style.height = '50px';
+    lightBox.style.marginTop = '10px';
+    lightBox.style.background = '#fffdee';
+    lightBox.style.border = '1px solid #f5e9b3';
+    // update brightness (opacity) based on candela value
+    const updateLight = () => {
+      const cd = parseFloat(slider.value);
+      valueDisplay.textContent = `${cd.toFixed(0)} cd`;
+      // map cd (0-100) to light intensity 0.1 to 1
+      const intensity = (cd / 100) * 0.9 + 0.1;
+      lightBox.style.background = `rgba(255, 245, 133, ${intensity})`;
+    };
+    slider.addEventListener('input', updateLight);
+    updateLight();
+    div.appendChild(label);
+    div.appendChild(slider);
+    div.appendChild(valueDisplay);
+    container.appendChild(div);
+    container.appendChild(lightBox);
+  }
+
+  canvas.addEventListener('click', handleClick);
+  draw();
+  // populate details panel with default info and image at startup
+  updateDetails();
+})();
+</script>
+</body>
+</html>
