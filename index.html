@@ -240,8 +240,9 @@
       details.appendChild(p);
       // insert an image summarizing the seven SI base quantities
       const img = document.createElement('img');
-      // use an absolute file path to ensure the image loads correctly in a local file
-      img.src = 'file:///home/oai/share/b4403ae3-8223-4855-930f-fc427f7ab7b0.png';
+      // use relative path to load the image from the repository on GitHub Pages
+      // this allows the table image to display correctly when hosted
+      img.src = 'b4403ae3-8223-4855-930f-fc427f7ab7b0.png';
       img.alt = 'SI base quantities table';
       img.style.maxWidth = '100%';
       img.style.marginTop = '10px';
@@ -369,8 +370,8 @@
 
     // add real illustrative image for length
     const img = document.createElement('img');
-    // use an absolute file path to ensure the image loads correctly in a local file
-    img.src = 'file:///home/oai/share/422b29cb-03ea-40b2-9ad6-cae9c672dbb5.png';
+    // use relative path for the length diagram image so it loads correctly on GitHub Pages
+    img.src = '422b29cb-03ea-40b2-9ad6-cae9c672dbb5.png';
     img.alt = 'Diagram explaining length';
     img.style.maxWidth = '100%';
     img.style.marginTop = '10px';
